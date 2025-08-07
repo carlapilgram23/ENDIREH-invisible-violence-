@@ -9,8 +9,9 @@ This repository contains the code and outputs for a quantitative research projec
   - [ENDIREH 2021 (INEGI)](https://www.inegi.org.mx/programas/endireh/2021/)
 
 - **Methods:**  
-  - Data cleaning and harmonization of selected emotional violence variables  
-  - Descriptive statistics and cross-tabulations  
+  - Data cleaning and harmonization of selected emotional violence and sociodemographic variables  
+  - Descriptive statistics and cross-tabulations
+  - Difference in Difference (DiD)
   - Logistic regression to identify sociodemographic and digital access predictors of recognition  
   - Comparison between 2016 and 2021
  
