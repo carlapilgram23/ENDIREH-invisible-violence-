@@ -5,6 +5,7 @@
 
 # Load files and libraries
 library(tidyverse)
+library(ggplot2)
 data_combined <- read_rds("../data/combined/data_combined_cleaned.rds")
 
 # Clean dataset

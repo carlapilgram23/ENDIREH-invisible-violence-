@@ -79,11 +79,17 @@ data_2016_cleaned <- sec_xiii_2016 %>%
     EDAD >= 30 & EDAD < 40 ~ "30-39",
     EDAD >= 40 & EDAD < 50 ~ "40-49",
     EDAD >= 50 & EDAD < 60 ~ "50-59",
-    EDAD >= 60 & EDAD <= 80 ~ "60-80",
+    EDAD >= 60 & EDAD < 80 ~ "60-79",
     EDAD > 80 ~ ">80",
     TRUE ~ NA_character_
-  )) %>%
+  ),
+  # Variable binaria de educación: 1 si GRA = 9, 0 si menor
+  GRA_bin = if_else(GRA == 8, 1, 0, missing = NA_real_)
+  ) %>%
   filter(!is.na(grupo_edad))
+
+
+
 
 
 
@@ -119,7 +125,7 @@ data_2016_cleaned <- data_2016_cleaned %>%
 data_2016_cleaned <- data_2016_cleaned %>%
   mutate(
     acceso_digital = rowSums(
-      select(., all_of(c("P1_4_1", "P1_4_2", "P1_4_3", "P1_4_4", "P1_4_5", "P1_4_9"))) == 1,
+      select(., all_of(c("P1_4_2", "P1_4_3", "P1_4_5", "P1_4_9"))) == 1,
       na.rm = TRUE
     )
   )
