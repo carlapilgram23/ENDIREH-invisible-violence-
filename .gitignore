@@ -54,3 +54,4 @@ data/**/raw/
 data/combined/data_combined_cleaned.rds
 data/combined/data_combined_cleaned.rds
 /c/Users/carla/OneDrive/Escritorio/LSE/Capstone Project/data/combined/data_combined.rds
+*.rds
