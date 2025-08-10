@@ -1,3 +1,3 @@
-year,total_mujeres,violencia_emocional_vivida,violencia_fisica_vivida,violencia_emocional_normalizada,violencia_fisica_normalizada,pct_emocional_vivida,pct_fisica_vivida,pct_emocional_normalizada,pct_fisica_normalizada
-2016,109746,38092,18627,23360,4255,34.70923769431232,16.97282816685802,61.325212643074664,22.843184624469856
-2021,110127,35656,18015,20049,3064,32.377164546387355,16.358386226810865,56.22896567197667,17.00804884818207
+year,total_mujeres,violencia_emocional_vivida,violencia_fisica_vivida,violencia_emocional_normalizada,violencia_fisica_normalizada,violencia_emocional_reconocida,pct_emocional_vivida,pct_fisica_vivida,pct_emocional_normalizada,pct_fisica_normalizada,pct_emocional_reconocida
+2016,110826,38490,18875,23575,4306,11859,34.73,17.03,61.25,22.81,30.81
+2021,110127,35656,18015,20049,3064,12982,32.38,16.36,56.23,17.01,36.41

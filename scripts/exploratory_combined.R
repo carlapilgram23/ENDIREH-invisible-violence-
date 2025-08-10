@@ -9,58 +9,106 @@ library(readr)
 library(tidyr)
 library(ggplot2)
 
-# Load data
-data <- read_csv("../data/combined/data_combined_cleaned.csv")
+library(tidyverse)
 
-# Physical violence
-#============
+# 1) Cargar combinado (mejor .rds para no perder tipos)
+data <- read_rds("../data/combined/data_combined.rds")
 
-# Make sure the columns are ok
+# 2) Asegurar binarios como 0/1 enteros
+viol_vars <- c(
+  "violencia_emocional_vivida",
+  "violencia_emocional_normalizada",
+  "violencia_emocional_reconocida",
+  "violencia_fisica_vivida",
+  "violencia_fisica_normalizada",
+  "violencia_vivida",
+  "violencia_normalizada",
+  "violencia_reconocida"
+)
+
 data <- data %>%
-  mutate(
-    violencia_emocional_vivida = as.logical(violencia_emocional_vivida),
-    violencia_fisica_vivida = as.logical(violencia_fisica_vivida),
-    violencia_emocional_normalizada = as.logical(violencia_emocional_normalizada),
-    violencia_fisica_normalizada = as.logical(violencia_fisica_normalizada)
-  )
+  mutate(across(any_of(viol_vars), ~ as.integer(.)))  # deja 0/1 claros
 
-# Yearly resume
-# Resume con porcentajes
+# 3) Resumen anual (cuentas y porcentajes)
 resumen <- data %>%
   group_by(year) %>%
   summarise(
     total_mujeres = n(),
     violencia_emocional_vivida = sum(violencia_emocional_vivida, na.rm = TRUE),
-    violencia_fisica_vivida = sum(violencia_fisica_vivida, na.rm = TRUE),
+    violencia_fisica_vivida    = sum(violencia_fisica_vivida,    na.rm = TRUE),
     violencia_emocional_normalizada = sum(violencia_emocional_normalizada, na.rm = TRUE),
-    violencia_fisica_normalizada = sum(violencia_fisica_normalizada, na.rm = TRUE)
+    violencia_fisica_normalizada    = sum(violencia_fisica_normalizada,    na.rm = TRUE),
+    violencia_emocional_reconocida  = sum(violencia_emocional_reconocida,  na.rm = TRUE),
+    .groups = "drop"
   ) %>%
   mutate(
-    pct_emocional_vivida = 100 * violencia_emocional_vivida / total_mujeres,
-    pct_fisica_vivida = 100 * violencia_fisica_vivida / total_mujeres,
-    pct_emocional_normalizada = 100 * violencia_emocional_normalizada / violencia_emocional_vivida,
-    pct_fisica_normalizada = 100 * violencia_fisica_normalizada / violencia_fisica_vivida
-  )
+    pct_emocional_vivida       = 100 * violencia_emocional_vivida       / total_mujeres,
+    pct_fisica_vivida          = 100 * violencia_fisica_vivida          / total_mujeres,
+    pct_emocional_normalizada  = 100 * violencia_emocional_normalizada  / pmax(violencia_emocional_vivida, 1),
+    pct_fisica_normalizada     = 100 * violencia_fisica_normalizada     / pmax(violencia_fisica_vivida, 1),
+    pct_emocional_reconocida   = 100 * violencia_emocional_reconocida   / pmax(violencia_emocional_vivida, 1)
+  ) %>%
+  mutate(across(starts_with("pct_"), ~ round(., 2)))
 
-# Mostrar
 print(resumen)
 
-# Guardar como CSV
+# 4) Guardar
+dir.create("../results/combined/tables", recursive = TRUE, showWarnings = FALSE)
 write_csv(resumen, "../results/combined/tables/resumen_general.csv")
+
 
 
 # By emotional violence
 #======================
 
+library(tidyverse)
 
-# === 1. Definir columnas por año ===
-emocional_2016 <- paste0("P13_1_", 10:22)
-emocional_2021 <- paste0("P14_1_", 10:22)
+# data debe ser tu combinado con year y columnas P14_1_* y P14_2_*
+# 1 = experiencia, 2 = percepción
 
-# === 2. Etiquetas comunes en inglés ===
+# 1) Long por ítem (10–22) usando las P14 comunes, preservando ID_PER
+dl <- data %>%
+  select(ID_PER, year, matches("^P14_[12]_(1[0-9]|2[0-2])$")) %>%
+  pivot_longer(
+    cols = -c(ID_PER, year),
+    names_to = c("serie","item"),
+    names_pattern = "^P14_([12])_(\\d+)$",
+    values_to = "val"
+  ) %>%
+  mutate(serie = if_else(serie == "1", "exp", "per")) %>%
+  pivot_wider(
+    id_cols   = c(ID_PER, year, item),  # <- clave única por persona-ítem-año
+    names_from = serie,
+    values_from = val
+  )
+
+
+# 2) Indicadores por persona-ítem
+dl <- dl %>%
+  mutate(
+    vivio       = exp %in% 1:3,
+    normalizo   = vivio & per == 3,
+    reconocio   = vivio & per %in% c(1, 2)
+  )
+
+# 3) Resumen por año e ítem
+by_item <- dl %>%
+  group_by(year, item) %>%
+  summarise(
+    n_mujeres    = n(),
+    n_vivio      = sum(vivio, na.rm = TRUE),
+    n_normalizo  = sum(normalizo, na.rm = TRUE),
+    n_reconocio  = sum(reconocio, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    pct_normalizo = 100 * n_normalizo / pmax(n_vivio, 1),
+    pct_reconocio = 100 * n_reconocio / pmax(n_vivio, 1)
+  )
+
+# 4) Etiquetas
 labels_en <- c(
-  "10" = "Shaming, insulting, 
-  or humiliating",
+  "10" = "Shaming, insulting, or humiliating",
   "11" = "Emotional neglect or lack of affection",
   "12" = "Statements suggesting infidelity",
   "13" = "Inducing fear",
@@ -69,126 +117,49 @@ labels_en <- c(
   "16" = "Stalking or surveillance",
   "17" = "Controlling your actions",
   "18" = "Threatening with weapons or burning",
-  "19" = "Threats of murder, suicide, 
-  or harm to children",
+  "19" = "Threats of murder, suicide, or harm to children",
   "20" = "Destroying or hiding belongings",
   "21" = "Ignoring or silent treatment",
   "22" = "Monitoring phone or email"
 )
 
-# === 3. Contar para 2016 ===
-conteo_2016 <- data %>%
-  filter(year == 2016) %>%
-  select(all_of(emocional_2016)) %>%
-  mutate(across(everything(), ~ . %in% 1:3)) %>%
-  summarise(across(everything(), ~ sum(.x, na.rm = TRUE))) %>%
-  pivot_longer(everything(), names_to = "var", values_to = "casos") %>%
-  mutate(
-    year = 2016,
-    tipo = str_extract(var, "\\d+$"),
-    tipo_violencia = labels_en[tipo]
-  )
+by_item <- by_item %>%
+  mutate(tipo_violencia = factor(item, levels = names(labels_en), labels = labels_en[names(labels_en)]))
 
-# === 4. Contar para 2021 ===
-conteo_2021 <- data %>%
-  filter(year == 2021) %>%
-  select(all_of(emocional_2021)) %>%
-  mutate(across(everything(), ~ . %in% 1:3)) %>%
-  summarise(across(everything(), ~ sum(.x, na.rm = TRUE))) %>%
-  pivot_longer(everything(), names_to = "var", values_to = "casos") %>%
-  mutate(
-    year = 2021,
-    tipo = str_extract(var, "\\d+$"),
-    tipo_violencia = labels_en[tipo]
-  )
-
-# === 5. Unir ambos ===
-conteo_total <- bind_rows(conteo_2016, conteo_2021)
-
-# === 6. Graficar ===
-specific_total <- ggplot(conteo_total, aes(x = reorder(tipo_violencia, -casos), y = casos, fill = factor(year))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_manual(values = c("2016" = "#1f77b4", "2021" = "#ff7f0e"),
-                    name = "Year") +
-  labs(
-    title = "Emotional Violence by Type and Year",
-    x = "Type of Emotional Violence",
-    y = "Number of Women Who Experienced It"
-  ) +
+# 5) Gráfico: número de mujeres que lo vivieron (por ítem y año)
+plot_viv <- ggplot(by_item, aes(x = reorder(tipo_violencia, -n_vivio), y = n_vivio, fill = factor(year))) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("2016" = "#1f77b4", "2021" = "#ff7f0e"), name = "Year") +
+  labs(title = "Emotional violence by type and year",
+       x = "Type of emotional violence", y = "Women who experienced it") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Only for women who experienced violence
-# Take the names for each year
-for (i in 10:22) {
-  exp_2016 <- paste0("P13_1_", i)
-  per_2016 <- paste0("P13_2_", i)
-  exp_2021 <- paste0("P14_1_", i)
-  per_2021 <- paste0("P14_2_", i)
-  
-  # Lo vivió
-  data <- data %>%
-    mutate(!!paste0("viv_", i) := case_when(
-      year == 2016 ~ get(exp_2016) %in% 1:3,
-      year == 2021 ~ get(exp_2021) %in% 1:3,
-      TRUE ~ FALSE
-    ))
-  
-  # Lo normalizó (vivió y dijo que fue sin importancia)
-  data <- data %>%
-    mutate(!!paste0("norm_", i) := case_when(
-      year == 2016 & get(exp_2016) %in% 1:3 & get(per_2016) == 3 ~ TRUE,
-      year == 2021 & get(exp_2021) %in% 1:3 & get(per_2021) == 3 ~ TRUE,
-      TRUE ~ FALSE
-    ))
-}
-
-# 2. Contar vivencias y normalizaciones
-result <- data %>%
-  select(year, starts_with("viv_"), starts_with("norm_")) %>%
-  group_by(year) %>%
-  summarise(across(starts_with("viv_"), ~ sum(.x, na.rm = TRUE), .names = "viv_{.col}"),
-            across(starts_with("norm_"), ~ sum(.x, na.rm = TRUE), .names = "norm_{.col}"))
-
-# 3. Reorganizar en formato largo y calcular % de normalización
-viv_cols <- grep("^viv_viv_", names(result), value = TRUE)
-norm_cols <- grep("^norm_norm_", names(result), value = TRUE)
-
-df_viv <- result %>%
-  select(year, all_of(viv_cols)) %>%
-  pivot_longer(cols = -year, names_to = "tipo", values_to = "vividas") %>%
-  mutate(tipo = gsub("viv_viv_", "", tipo))
-
-df_norm <- result %>%
-  select(year, all_of(norm_cols)) %>%
-  pivot_longer(cols = -year, names_to = "tipo", values_to = "normalizadas") %>%
-  mutate(tipo = gsub("norm_norm_", "", tipo))
-
-df_porcentajes <- left_join(df_viv, df_norm, by = c("year", "tipo")) %>%
-  mutate(porcentaje = 100 * normalizadas / vividas)
-
-df_porcentajes$tipo_violencia <- factor(
-  df_porcentajes$tipo,
-  levels = names(labels_en),
-  labels = labels_en[names(labels_en)]
-)
-
-# 5. Graficar
-specific_plot <- ggplot(df_porcentajes, aes(x = tipo_violencia, y = porcentaje, fill = factor(year))) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_manual(values = c("2016" = "#1f77b4", "2021" = "#ff7f0e"),
-                    name = "Year") +
-  labs(
-    title = "FIGURE 1. Normalized Emotional Violence: % of Women Who Did Not Consider It Serious",
-    x = "Type of Emotional Violence",
-    y = "% of Women Who Experienced It and Said It Was 'Not Important'"
-  ) +
+# 6) Gráfico: % que la normalizaron entre quienes la vivieron
+plot_norm <- ggplot(by_item, aes(x = tipo_violencia, y = pct_normalizo, fill = factor(year))) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("2016" = "#1f77b4", "2021" = "#ff7f0e"), name = "Year") +
+  labs(title = "Normalised emotional violence by type",
+       x = "Type of emotional violence",
+       y = "% of women who experienced it and marked 'not important'") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+# 7) Gráfico: % que la reconocieron entre quienes la vivieron
+plot_reco <- ggplot(by_item, aes(x = tipo_violencia, y = pct_reconocio, fill = factor(year))) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("2016" = "#1f77b4", "2021" = "#ff7f0e"), name = "Year") +
+  labs(title = "Recognised emotional violence by type",
+       x = "Type of emotional violence",
+       y = "% of women who experienced it and marked 1 or 2") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Save the plot
-ggsave("../results/combined/plots/specific_plot.png", plot = specific_plot, width = 11, height = 6, dpi = 300)
+# 8) Guardar
+dir.create("../results/combined/plots", recursive = TRUE, showWarnings = FALSE)
+ggsave("../results/combined/plots/emotional_by_item_experienced.png", plot_viv,  width = 11, height = 6, dpi = 300)
+ggsave("../results/combined/plots/emotional_by_item_normalised.png", plot_norm, width = 11, height = 6, dpi = 300)
+ggsave("../results/combined/plots/emotional_by_item_recognised.png", plot_reco,  width = 11, height = 6, dpi = 300)
 
 # By Age
 #============
@@ -208,7 +179,7 @@ resumen_edad_filtrado <- data %>%
   ) %>%
   mutate(grupo_edad = factor(
     grupo_edad,
-    levels = c("<20", "20-29", "30-39", "40-49", "50-59", " ", ">80")
+    levels = c("<20", "20-29", "30-39", "40-49", "50-59", "60-79", ">80")
   ))
 
 # Plot
@@ -236,6 +207,51 @@ age_plot_ <- ggplot(resumen_edad_filtrado, aes(x = grupo_edad, y = porcentaje, c
 
 # Save the plot
 ggsave("../results/combined/plots/age_plot_.png", plot = age_plot_, width = 8, height = 5, dpi = 300)
+
+library(tidyverse)
+
+# Si tus binarios están como lógicos o enteros, esto funciona igual
+resumen_edad_reco <- data %>%
+  filter(
+    !is.na(violencia_emocional_reconocida),
+    violencia_emocional_vivida == 1  # si la tienes lógica, usa == TRUE
+  ) %>%
+  group_by(year, grupo_edad) %>%
+  summarise(
+    total_vivieron = n(),
+    reconocieron   = sum(violencia_emocional_reconocida, na.rm = TRUE),
+    porcentaje     = round(100 * reconocieron / pmax(total_vivieron, 1), 1),
+    .groups = "drop"
+  ) %>%
+  mutate(grupo_edad = factor(
+    grupo_edad,
+    levels = c("<20", "20-29", "30-39", "40-49", "50-59", "60-79", ">80")
+  ))
+
+# Plot
+age_plot_rec <- ggplot(resumen_edad_reco, aes(x = grupo_edad, y = porcentaje, color = as.factor(year), group = year)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Recognised Emotional Violence Among Women Who Experienced It",
+    subtitle = "By age group – Comparison between 2016 and 2021",
+    x = "Age group",
+    y = "% who recognised experienced cases as serious",
+    color = "Year"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    axis.title = element_text(size = 10),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9)
+  )
+
+# Save
+dir.create("../results/combined/plots", recursive = TRUE, showWarnings = FALSE)
+ggsave("../results/combined/plots/age_plot_recognised.png", plot = age_plot_rec, width = 8, height = 5, dpi = 300)
 
 ### Prove H2
 
