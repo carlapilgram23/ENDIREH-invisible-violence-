@@ -21,11 +21,11 @@
 # RStudio files
 .Rproj.user/
 
-# produced vignettes
+# Produced vignettes
 vignettes/*.html
 vignettes/*.pdf
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+# OAuth2 token
 .httr-oauth
 
 # knitr and R markdown default cache directories
@@ -42,17 +42,19 @@ vignettes/*.pdf
 # pkgdown site
 docs/
 
-# translation temp files
+# Translation temp files
 po/*~
 
 # RStudio Connect folder
 rsconnect/
 
-# Ignorar todas las carpetas raw
+# Ignore raw data folders
 data/**/raw/
 
+# Ignore combined data files
 data/combined/data_combined_cleaned.rds
-data/combined/data_combined_cleaned.rds
-/c/Users/carla/OneDrive/Escritorio/LSE/Capstone Project/data/combined/data_combined.rds
+data/combined/data_combined.rds
+
+# Ignore all .rds files
 *.rds
-*.rds
+
