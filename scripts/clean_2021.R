@@ -51,7 +51,7 @@ data_2021_cleaned <- sec_xiv_2021 |>
       EDAD >= 80 ~ ">80",
       TRUE ~ NA_character_
     ),
-    GRA_bin = if_else(GRA >= 8, 1L, 0L, missing = NA_integer_)
+    GRA_bin = if_else(GRA >= 4, 1L, 0L, missing = NA_integer_)
   ) |>
   filter(!is.na(grupo_edad))
 
@@ -111,3 +111,4 @@ data_2021_cleaned <- data_2021_cleaned |>
 dir.create("../data/2021/cleaned", recursive=TRUE, showWarnings=FALSE)
 write_rds(data_2021_cleaned, "../data/2021/cleaned/data_2021_cleaned.rds")
 write_csv(data_2021_cleaned, "../data/2021/cleaned/data_2021_cleaned.csv")
+

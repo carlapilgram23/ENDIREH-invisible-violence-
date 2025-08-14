@@ -101,7 +101,7 @@ data_2016_cleaned <- sec_xiii_2016 %>%
       EDAD > 80 ~ ">80",
       TRUE ~ NA_character_
     ),
-    GRA_bin = if_else(GRA >= 8, 1, 0, missing = NA_real_)
+    GRA_bin = if_else(GRA >=4, 1L, 0L, missing = NA_real_)
   ) %>%
   filter(!is.na(grupo_edad))
 
